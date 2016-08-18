@@ -99,6 +99,7 @@ struct
       | Ppat_unpack _ -> Exhaustive
       | Ppat_tuple ps -> all is_exhaustive ps
       | Ppat_alias (p, _)
+      | Ppat_open (_, p)
       | Ppat_lazy p -> is_exhaustive p
       (* We can't tell whether (`A:t) is exhaustive without resolving t *)
       | Ppat_constraint (p, _) -> PossiblyExhaustive
