@@ -37,7 +37,7 @@ Executable "advanced"
 
 Executable "parsing"
   Path:             examples/
-  MainIs:           parsing.ml
+  MainIs:           parsing_example.ml
   BuildTools:       ocamlbuild
   BuildDepends:     compiler-libs, compiler-libs.common
   ByteOpt+:         -ppx src/ppx_monad.byte
@@ -60,7 +60,7 @@ Test       "advanced"
   Command:          ./advanced.byte
 
 Test       "parsing"
-  Command:          ./parsing.byte
+  Command:          ./parsing_example.byte
 
 Test       "patterns"
   Command:          ./patterns.byte
