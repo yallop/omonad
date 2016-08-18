@@ -103,13 +103,15 @@ struct
       (* We can't tell whether (`A:t) is exhaustive without resolving t *)
       | Ppat_constraint (p, _) -> PossiblyExhaustive
       | Ppat_array _
+      | Ppat_exception _
+      | Ppat_extension _
       (* 'Constant' means integer, string or character constant. *)
       | Ppat_constant _ -> Inexhaustive
       | Ppat_type _
       | Ppat_variant _
       | Ppat_construct _ -> PossiblyExhaustive
       (* 'Or'-patterns are too much work for the moment *)
-      | Ppat_or _ -> PossiblyExhaustive
+      | Ppat_or _ | Ppat_interval (_, _) -> PossiblyExhaustive
       | Ppat_record (fields, _) -> all (fun (_,p) -> is_exhaustive p) fields
 end
 
@@ -148,7 +150,7 @@ let mapper =
 
       let expapply f_id args =
         Exp.apply (Exp.ident @@ Location.mknoloc @@ Longident.parse f_id)
-        @@ List.map (fun x -> ("", x)) args
+        @@ List.map (fun x -> (Nolabel, x)) args
       in
 
       match e.pexp_desc with
@@ -171,7 +173,7 @@ let mapper =
               exit !fail_exit_code
           in
           let fail_code = expapply "fail" 
-              [Exp.constant (Const_string ("Pattern-match failure in perform-block", None))]
+              [Exp.constant (Pconst_string ("Pattern-match failure in perform-block", None))]
           in
           Exhaustive.(match is_exhaustive patt with
             | Exhaustive ->
@@ -182,7 +184,7 @@ let mapper =
             *)
               expapply "bind"
                 [ this # expr rhs;
-                  Exp.fun_ "" None patt @@ this # expr next ]
+                  Exp.fun_ Nolabel None patt @@ this # expr next ]
             | Inexhaustive ->
             (* We've determined that pattern-matching against p can fail.
                The desugaring is
@@ -223,7 +225,7 @@ let mapper =
       | Pexp_sequence (first, second) when in_monad ->
         expapply "bind"
           [ this # expr first;
-            Exp.fun_ "" None
+            Exp.fun_ Nolabel None
               (Pat.var @@ Location.mknoloc "_") (this # expr second) ]
 
       | Pexp_apply
