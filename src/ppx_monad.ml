@@ -31,6 +31,10 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   ---------------------------------------------------------------------------*)
 
+
+open Migrate_parsetree
+open Ast_404
+
 open Asttypes
 open Ast_helper
 open Ast_mapper
@@ -141,107 +145,109 @@ let rec patt_of_expr : expression -> pattern =
        }
 
 let mapper =
-  object(this)
+  let rec mapper ~in_monad =
+    let super = Ast_mapper.default_mapper in
+    {super with
+     expr = (fun self e ->
+         let expapply f_id args =
+           Exp.apply (Exp.ident @@ Location.mknoloc @@ Longident.parse f_id)
+           @@ List.map (fun x -> (Nolabel, x)) args
+         in
 
-    inherit Ast_mapper_class.mapper as super
+         match e.pexp_desc with
+         | Pexp_apply
+             ( { pexp_desc = Pexp_ident {txt = Lident "perform"} },
+               [_,body] )
+           ->
+           let this' = mapper ~in_monad:true in
+           this'.expr this' body
 
-    val in_monad = false
+         | Pexp_sequence
+             ( { pexp_desc = Pexp_apply
+                     ( { pexp_desc = Pexp_ident { txt = Lident "<--" } },
+                       [_,lhs; _,rhs] ) },
+               next)
+           when in_monad ->
 
-    method! expr e =
+           let patt =
+             try patt_of_expr lhs
+             with Pattern_translation_failure loc ->
+               Format.eprintf "%appx-monad: Invalid pattern.@." Location.print loc;
+               exit !fail_exit_code
+           in
+           let fail_code = expapply "fail"
+               [Exp.constant (Pconst_string ("Pattern-match failure in perform-block", None))]
+           in
+           Exhaustive.(match is_exhaustive patt with
+               | Exhaustive ->
+                 (* We've determined that pattern-matching against p cannot fail.
+                    The desugaring is
 
-      let expapply f_id args =
-        Exp.apply (Exp.ident @@ Location.mknoloc @@ Longident.parse f_id)
-        @@ List.map (fun x -> (Nolabel, x)) args
-      in
+                    p <-- e1; e2    ~>    bind e1 (fun p -> e2)
+                 *)
+                 expapply "bind"
+                   [ self.expr self rhs;
+                     Exp.fun_ Nolabel None patt @@ self.expr self next ]
+               | Inexhaustive ->
+                 (* We've determined that pattern-matching against p can fail.
+                    The desugaring is
 
-      match e.pexp_desc with
-      | Pexp_apply
-          ( { pexp_desc = Pexp_ident {txt = Lident "perform"} },
-            [_,body] )
-        -> {< in_monad = true>} # expr body
+                    p <-- e1; e2    ~>    bind e1 (function p -> e2
+                    | _ -> fail "...")
+                 *)
+                 expapply "bind"
+                   [ self.expr self rhs;
+                     Exp.function_
+                       [ Exp.case patt @@ self.expr self next;
+                         Exp.case (Pat.var @@ Location.mknoloc "_") fail_code ] ]
+               | PossiblyExhaustive ->
+                 (* We cannot determine whether pattern-matching against p can fail.
+                    The desugaring is
 
-      | Pexp_sequence
-          ( { pexp_desc = Pexp_apply
-              ( { pexp_desc = Pexp_ident { txt = Lident "<--" } },
-                [_,lhs; _,rhs] ) },
-            next)
-          when in_monad ->
+                    p <-- e1; e2    ~>    bind e1 (function p when true -> e2
+                    | _ -> fail "...")
 
-          let patt =
-            try patt_of_expr lhs
-            with Pattern_translation_failure loc ->
-              Format.eprintf "%appx-monad: Invalid pattern.@." Location.print loc;
-              exit !fail_exit_code
-          in
-          let fail_code = expapply "fail" 
-              [Exp.constant (Pconst_string ("Pattern-match failure in perform-block", None))]
-          in
-          Exhaustive.(match is_exhaustive patt with
-            | Exhaustive ->
-            (* We've determined that pattern-matching against p cannot fail.
-               The desugaring is
+                    The 'when true' guard avoids the redundancy warning that would
+                    otherwise be generated if the OCaml implementation discovered
+                    that matching against p could not fail.
+                 *)
+                 expapply "bind"
+                   [ self.expr self rhs;
+                     Exp.function_
+                       [ Exp.case
+                           patt
+                           ~guard:(Exp.construct
+                                     (Location.mknoloc @@ Longident.parse "true")
+                                     None)
+                           (self.expr self next);
+                         Exp.case
+                           (Pat.var @@ Location.mknoloc "_")
+                           fail_code]]
+             )
 
-               p <-- e1; e2    ~>    bind e1 (fun p -> e2)
-            *)
-              expapply "bind"
-                [ this # expr rhs;
-                  Exp.fun_ Nolabel None patt @@ this # expr next ]
-            | Inexhaustive ->
-            (* We've determined that pattern-matching against p can fail.
-               The desugaring is
+         | Pexp_sequence (first, second) when in_monad ->
+           expapply "bind"
+             [ self.expr self first;
+               Exp.fun_ Nolabel None
+                 (Pat.var @@ Location.mknoloc "_") (self.expr self second) ]
 
-               p <-- e1; e2    ~>    bind e1 (function p -> e2
-               | _ -> fail "...")
-            *)
-              expapply "bind"
-                [ this # expr rhs;
-                  Exp.function_
-                    [ Exp.case patt @@ this # expr next;
-                      Exp.case (Pat.var @@ Location.mknoloc "_") fail_code ] ]
-            | PossiblyExhaustive ->
-            (* We cannot determine whether pattern-matching against p can fail.
-               The desugaring is
+         | Pexp_apply
+             ( { pexp_loc;
+                 pexp_desc = Pexp_ident {txt = Lident "<--"} },
+               [_,lhs;l,rhs] ) when in_monad ->
+           Format.eprintf "%appx-monad: Monadic computation must be terminated with return.@." Location.print pexp_loc;
+           exit !fail_exit_code
 
-               p <-- e1; e2    ~>    bind e1 (function p when true -> e2
-               | _ -> fail "...")
-
-               The 'when true' guard avoids the redundancy warning that would
-               otherwise be generated if the OCaml implementation discovered
-               that matching against p could not fail.
-            *)
-              expapply "bind"
-                [ this # expr rhs;
-                  Exp.function_
-                    [ Exp.case
-                        patt
-                        ~guard:(Exp.construct
-                                  (Location.mknoloc @@ Longident.parse "true")
-                                  None)
-                        (this # expr next);
-                      Exp.case
-                        (Pat.var @@ Location.mknoloc "_")
-                        fail_code]]
-            )
-
-      | Pexp_sequence (first, second) when in_monad ->
-        expapply "bind"
-          [ this # expr first;
-            Exp.fun_ Nolabel None
-              (Pat.var @@ Location.mknoloc "_") (this # expr second) ]
-
-      | Pexp_apply
-          ( { pexp_loc;
-              pexp_desc = Pexp_ident {txt = Lident "<--"} },
-            [_,lhs;l,rhs] ) when in_monad ->
-        Format.eprintf "%appx-monad: Monadic computation must be terminated with return.@." Location.print pexp_loc;
-        exit !fail_exit_code
-
-      | _ -> super # expr e
-
-  end
+         | _ -> super.expr self e
+       )
+    }
+  in
+  mapper ~in_monad:false
 
 (* let spec = Arg.align ["-fail-exit-code", Arg.Set_int fail_exit_code, " Set failing code for this ppx, useful for testing"] *)
 
 let () =
+  let module Convert = Convert(OCaml_404)(OCaml_current) in
   (* Arg.parse spec (fun _ -> ()) "ppx-monad: Monadic code in OCaml using ppx"; *)
-  Ast_mapper.run_main @@ fun _ -> Ast_mapper_class.to_mapper mapper
+  Compiler_libs.Ast_mapper.run_main @@ fun _ ->
+  Convert.copy_mapper mapper

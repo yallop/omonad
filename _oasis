@@ -12,7 +12,7 @@ Executable "ppx_monad"
   Path:             src/
   MainIs:           ppx_monad.ml
   BuildTools:       ocamlbuild
-  BuildDepends:     compiler-libs, compiler-libs.common, ppx_tools
+  BuildDepends:     compiler-libs, compiler-libs.common, ocaml-migrate-parsetree
   ByteOpt+:         -I +compiler-libs
   NativeOpt+:       -I +compiler-libs
   Install:          true
@@ -21,7 +21,7 @@ Executable "basics"
   Path:             examples/
   MainIs:           basics.ml
   BuildTools:       ocamlbuild
-  BuildDepends:     compiler-libs, compiler-libs.common
+  BuildDepends:     compiler-libs, compiler-libs.common, ocaml-migrate-parsetree
   ByteOpt+:         -ppx src/ppx_monad.byte
   NativeOpt+:       -ppx src/ppx_monad.byte
   Install:          false
@@ -30,7 +30,7 @@ Executable "advanced"
   Path:             examples/
   MainIs:           advanced.ml
   BuildTools:       ocamlbuild
-  BuildDepends:     compiler-libs, compiler-libs.common
+  BuildDepends:     compiler-libs, compiler-libs.common, ocaml-migrate-parsetree
   ByteOpt+:         -ppx src/ppx_monad.byte
   NativeOpt+:       -ppx src/ppx_monad.byte
   Install:          false
@@ -39,7 +39,7 @@ Executable "parsing"
   Path:             examples/
   MainIs:           parsing_example.ml
   BuildTools:       ocamlbuild
-  BuildDepends:     compiler-libs, compiler-libs.common
+  BuildDepends:     compiler-libs, compiler-libs.common, ocaml-migrate-parsetree
   ByteOpt+:         -ppx src/ppx_monad.byte
   NativeOpt+:       -ppx src/ppx_monad.byte
   Install:          false
@@ -48,7 +48,7 @@ Executable "patterns"
   Path:             examples/
   MainIs:           patterns.ml
   BuildTools:       ocamlbuild
-  BuildDepends:     compiler-libs, compiler-libs.common
+  BuildDepends:     compiler-libs, compiler-libs.common, ocaml-migrate-parsetree
   ByteOpt+:         -ppx src/ppx_monad.byte
   NativeOpt+:       -ppx src/ppx_monad.byte
   Install:          false
