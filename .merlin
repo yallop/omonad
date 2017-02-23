@@ -2,4 +2,4 @@ S src
 S examples
 B _build/src
 B _build/examples
-PKG compiler-libs, compiler-libs.common
+PKG compiler-libs compiler-libs.common ocaml-migrate-parsetree

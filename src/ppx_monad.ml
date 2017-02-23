@@ -31,6 +31,10 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   ---------------------------------------------------------------------------*)
 
+
+open Migrate_parsetree
+open Ast_404
+
 open Asttypes
 open Ast_helper
 open Ast_mapper
@@ -243,5 +247,7 @@ let mapper =
 (* let spec = Arg.align ["-fail-exit-code", Arg.Set_int fail_exit_code, " Set failing code for this ppx, useful for testing"] *)
 
 let () =
+  let module Convert = Convert(OCaml_404)(OCaml_current) in
   (* Arg.parse spec (fun _ -> ()) "ppx-monad: Monadic code in OCaml using ppx"; *)
-  Ast_mapper.run_main @@ fun _ -> mapper
+  Compiler_libs.Ast_mapper.run_main @@ fun _ ->
+  Convert.copy_mapper mapper
