@@ -20,7 +20,7 @@ depends: [
   "ocaml-migrate-parsetree"
   "ocamlbuild" {build}
 ]
-dev-repo: "https://github.com/yallop/omonad.git"
+dev-repo: "git+https://github.com/yallop/omonad.git"
 homepage: "https://github.com/yallop/omonad"
 bug-reports: "https://github.com/yallop/omonad/issues"
 flags: light-uninstall
