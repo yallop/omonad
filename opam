@@ -11,11 +11,10 @@ build: [
   ["ocaml" "setup.ml" "-configure" "--enable-tests" "--prefix" prefix]
   ["ocaml" "setup.ml" "-build"]
 ]
-remove: [["ocamlfind" "remove" "omonad"]]
 depends: [
   "ocaml" {>= "4.08.0"}
-  "ocamlfind"
-  "oasis"
+  "ocamlfind" {build}
+  "oasis"     {build}
   "ppx_tools"
   "ocaml-migrate-parsetree"
   "ocamlbuild" {build}
@@ -23,6 +22,5 @@ depends: [
 dev-repo: "git+https://github.com/yallop/omonad.git"
 homepage: "https://github.com/yallop/omonad"
 bug-reports: "https://github.com/yallop/omonad/issues"
-flags: light-uninstall
 install: ["ocaml" "setup.ml" "-install"]
 
