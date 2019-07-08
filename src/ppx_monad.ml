@@ -172,7 +172,7 @@ let mapper =
            let patt =
              try patt_of_expr lhs
              with Pattern_translation_failure loc ->
-               Format.eprintf "%appx-monad: Invalid pattern.@." Location.print loc;
+               Format.eprintf "%appx-monad: Invalid pattern.@." Location.print_loc loc;
                exit !fail_exit_code
            in
            let fail_code = expapply "fail"
@@ -235,7 +235,7 @@ let mapper =
              ( { pexp_loc;
                  pexp_desc = Pexp_ident {txt = Lident "<--"} },
                [_,lhs;l,rhs] ) when in_monad ->
-           Format.eprintf "%appx-monad: Monadic computation must be terminated with return.@." Location.print pexp_loc;
+           Format.eprintf "%appx-monad: Monadic computation must be terminated with return.@." Location.print_loc pexp_loc;
            exit !fail_exit_code
 
          | _ -> super.expr self e
